@@ -16,6 +16,7 @@
 
 #include "Arduino.h"
 #include "SimpleStepper.h"
+#include "limits.h"
 
 SimpleStepper::SimpleStepper(int enablePin,
                              int dirPin,
@@ -28,21 +29,21 @@ SimpleStepper::SimpleStepper(int enablePin,
     pinMode(_enablePin, OUTPUT);
     digitalWrite(_enablePin, 1); // disable is default
 
-    pinMode(_dirPin, GPIO_OUT);
+    pinMode(_dirPin, OUTPUT);
     digitalWrite(_dirPin, 0);
 
-    pinMode(_stepPin, GPIO_OUT);
+    pinMode(_stepPin, OUTPUT);
     digitalWrite(_stepPin, 0);
 }
 
 void SimpleStepper::enable() const
 {
-    gpio_put(_enablePin, 0);
+    digitalWrite(_enablePin, 0);
 }
 
 void SimpleStepper::disable() const
 {
-    gpio_put(_enablePin, 1);
+    digitalWrite(_enablePin, 1);
 }
 
 uint32_t SimpleStepper::stepsToGo() const
@@ -67,7 +68,7 @@ void SimpleStepper::moveAbs(float pos)
     {
         _stepsToGo = 0;
     }
-    gpio_put(_dirPin, (_direction == direction::pos) ? 1 : 0);
+    digitalWrite(_dirPin, (_direction == direction::pos) ? 1 : 0);
 }
 
 void SimpleStepper::moveSteps(uint32_t steps, direction dir)
@@ -93,14 +94,20 @@ void SimpleStepper::run()
     if (_stepsToGo == 0)
         return;
 
-    auto current = time_us_64();
+    auto current = micros();
+
+    if(current < _lastStepTime)
+    {
+        // overflow
+        _lastStepTime -= ULONG_MAX;
+    }
 
     if ((current - _lastStepTime) >= _stepInterval)
     {
         // step !!!
-        gpio_put(_stepPin, 1);
-        sleep_us(2);
-        gpio_put(_stepPin, 0);
+        digitalWrite(_stepPin, 1);
+        delayMicroseconds(2);
+        digitalWrite(_stepPin, 0);
         switch (_direction)
         {
         case direction::neg:
